@@ -18,26 +18,14 @@
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
 
-from calendar import c
 import sys
 import socket
 import re
 # you may use urllib to encode data appropriately
 import urllib.parse
 
-import os
-
-#defined globals
-encoding = 'utf-8'
 newline = "\n"
-
-root = "./" #the current dir, with just want ot access our custom htmls
-http = "HTTP/1.1 "
-
-status_codes = {200:"200 OK", 301:"301 Moved Permanently", 403:"403 Forbidden", 404:"404 Not Found", 405:"405 Method Not Allowed"}
-
-headers_list=["Content-Type: ", "Content-Size: ", "Location: ", "Connection: "]
-headers_default=["text/plain", "0", "", "close"]
+http = "HTTP/1.1"
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -56,34 +44,21 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        resp_parts = data.split("\r\n\r\n")
+        print(resp_parts)
+        code = int(resp_parts[0].split()[1])
+        return code
 
-    def get_headers(self, ext):
-        # return None
-        #0
-        
-        cont_type_header = headers_list[0]
-        file_type = "text/html" #tell the user whats up with our own html
-        headers = (cont_type_header + file_type + newline)
-
-        #1
-        cont_size_header = headers_list[1]
-        content_bytesize = os.path.getsize(root+ext) #PROBLEMS FOR 405 LINE
-        headers += (cont_size_header + str(content_bytesize) + newline)
-        
-        #3
-        connection_header = headers_list[3]
-        headers += (connection_header + headers_default[3] + newline)
-
+    def get_headers(self,data):
+        resp_parts = data.split("\r\n\r\n")
+        print(resp_parts)
+        headers = resp_parts[0]
         return headers
 
-    def get_body(self, ext):
-        # return None
-        body = ""
-        file = open(root+ext, 'r')
-        filelines = file.readlines()
-        for line in filelines:
-            body += line
+    def get_body(self, data):
+        resp_parts = data.split("\r\n\r\n")
+        print(resp_parts)
+        body = resp_parts[1]
         return body
     
     def sendall(self, data):
@@ -102,256 +77,98 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
-       
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
         code = 500
         body = ""
 
-        print("says him")
-        print(parse_url(url))
-        #need the host and path from the url to make request
-        scheme, host, port, path = self.parseUrl(url)
-
-        if scheme not in {"http","https"}:
-            return self.Not_Found()
-        
-        if host==None:
-            host=path
-            path='/'
-        
-        print(scheme)
-        print(host)
-        print(port)
-        print(path)
-
-        host = socket.gethostbyname(host)
-        #First build the request. Just the first lien and host
-        first_line = "GET " + path + " HTTP/1.1"
-        header_line = "Host: " + host
-        header_line += newline + "Accept: */*"
-        header_line += newline + "Connection: close"
-        request_body = ""
-
-   
-        request = first_line + newline + header_line + newline + request_body + newline
-        #show request 
-        print(request)
-        
-
-        #sent request to sserver, we act as a proxy client and want a reponse as end result
-        response = b""
-
-        #CONNECT TO WEB SERVER
+        url_parts = urllib.parse.urlparse(url)
+        print(url_parts)
+        scheme = url_parts.scheme
+        host = url_parts.hostname
+        port = url_parts.port
         if port==None:
-            if scheme == "http":
-                port = 80
-            elif scheme == "https":
-                port = 443
-        print(host,port)
+            port = 80
+        path = url_parts.path
+
+        print("HOST PORT")
+        print(host, port)
+
         self.connect(host, port)
 
-        #assuming connected.. SEND REQUEST TO WEBSERVER
+        first_line = "GET " + path + " HTTP/1.1\r\n"
+        req_headers = "Host: "+host + newline + "Connection: close\r\n"
+        req_body = "\r\n"
+
+        request = first_line + req_headers + req_body
+
+        print(request)
         self.sendall(request)
-        # self.endheaders() 
-        
-
-        #TELL WEB SERVER THIS SERVER CLIENT IS DONE WRITING DATA
-        done = socket.SHUT_WR
-        self.socket.shutdown(done)
-
-        #RECIEVED REPOSNSE FROM WEB SERVER AND SEND TO PROXY CLIENT
-        #RECEIVE RESPONSE FROM WEB SERVER
         response = self.recvall(self.socket)
-        
-        #We have a response, we determine the status code and response body and sent them back as int and string respectively
         self.close()
-        #show response
-        print("RESPONSE WAS WAS")
+
+        print("response was")
         print(response)
-        
 
+        code = self.get_code(response)
+        body = self.get_body(response)
         
-        # set the values need for a HTTPResponse
-        code = int(response.split()[1])
         
-
-        client_error = False
-        if client_error:
-            return self.Not_Found()
-        else:
-            response_parts = response.encode().split(b"\r\n\r\n")
-            # print("THE PARTS:",response_parts)
-            if len(response_parts) > 1:
-                body = response_parts[1].decode(encoding)
-            else:
-                body = b"" #No Body haha wasnt funny first time either
-
-            return HTTPResponse(code, body)
+        return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
         code = 500
         body = ""
-        
 
-        #need the host and path from the url to make request
-        scheme, host, port, path = self.parseUrl(url)
-
-        if scheme not in {"http","https"}:
-            return self.Not_Found()
-        
-        if host==None:
-            host=path
-            path='/'
-
-        print(host)
-        print(path)
-        host = socket.gethostbyname(host)
-
-        #First build the request. Just the first lien and host
-        first_line = "POST " + path + " HTTP/1.1"
-        header_line = "Host: " + host
-        header_line += newline + "Accept: */*"
-
-        if args != None: #convert to long ass name
-            header_line += newline + "Content-Type: application/x-www-form-urlencoded"
-            print("hey args")
-            urlencoding = urllib.parse.urlencode(args)
-            print(urlencoding,"as is")
-            urlencoding = urlencoding[:-3] + "\r" #remove last ampersand
-            header_line += newline + "Content-length: " + str(len(urlencoding))
-            request_body = urlencoding
-            # print("-------------------")
-            # print(args)
-            # print(urlencoding)
-        else:
-            header_line += newline + "Content-length: 0"
-            request_body = ""
-        
-        header_line += newline + "Connection: close"
-
-
-# Content-Length: 23
-      
-# key1=value1&key2=value2
-        ##add content type and body
-
-        
-   
-        request = first_line + newline + header_line + newline + newline + request_body + newline
-        #show request 
-        print(request)
-
-
-        #sent request to sserver, we act as a proxy client and want a reponse as end result
-        response = b""
-        #CREATE REQUEST TO WEB SERVER
-
-        #CONNECT TO WEB SERVER
+        url_parts = urllib.parse.urlparse(url)
+        print(url_parts)
+        scheme = url_parts.scheme
+        host = url_parts.hostname
+        port = url_parts.port
         if port==None:
             port = 80
+        path = url_parts.path
+
+        print("HOST PORT")
+        print(host, port)
+
         self.connect(host, port)
 
-        #assuming connected.. SEND REQUEST TO WEBSERVER
-        self.sendall(request)
-        
+        first_line = "POST " + path + " HTTP/1.1\r\n"
 
-        #TELL WEB SERVER THIS SERVER CLIENT IS DONE WRITING DATA
-        done = socket.SHUT_WR
-        self.socket.shutdown(done)
-
-        #RECIEVED REPOSNSE FROM WEB SERVER AND SEND TO PROXY CLIENT
-        #RECEIVE RESPONSE FROM WEB SERVER
-        response = self.recvall(self.socket)
-
-
-        
-        #We have a response, we determine the status code and response body and sent them back as int and string respectively
-        self.close()
-        #show response
-        print("RESPONSE WAS")
-        print(response)
-
-        # set the values need for a HTTPResponse
-        code = int(response.split()[1])
-
-        client_error = code>=400
-        if client_error:
-            return self.Not_Found()
+        #NEED ARGS for both request headers and body
+        if args == None:
+            req_body = ""
+            req_body_length = "0\r\n"
         else:
-            print("here")
-            response_parts = (response.encode()).split(b"\r\n\r\n")
-            # print("THE PARTS:",response_parts)
-            if len(response_parts) > 1:
-                body = response_parts[1].decode(encoding)
-                # print("the bosy is ",body)
-            else:
-                body = b"" #No Body haha wasnt funny first time either
-            return HTTPResponse(code, body)
-        
-    
-    def Method_Not_Allowed(self): #method to give our own 405 Response
-        code = 405
-        #make a personal 405
-        # print("NOT GETTING")
-        
-        resp_firstline =  http  + status_codes[code]
+            req_body = urllib.parse.urlencode(args)
+            req_body_length = str(len(req_body))
 
-        file_ext = "400html files/405.html" #to show them why
-        resp_headers = self.get_headers(file_ext)
-        resp_body = self.get_body(file_ext)
+        req_headers = "Host: "+host+newline + "Content-Type: application/x-www-form-urlencoded\r\n" + "Content-Length: "+req_body_length+newline + "Connection: close\r\n"
 
-        response = resp_firstline + newline + resp_headers + newline + resp_body + newline
+        request = first_line + req_headers + newline + req_body
+
+        print(request)
+        self.sendall(request)
+        response = self.recvall(self.socket)
+        self.close()
+
+        # print("response was")
         print(response)
 
-        body = resp_body
+        code = self.get_code(response)
+        body = self.get_body(response)
+
         return HTTPResponse(code, body)
-    
-    def Not_Found(self): #method to give our own 404 Response
-        code = 404
-        #make a personal 404
-        # print("NOT GETTING")
-        
-        resp_firstline =  http  + status_codes[code]
 
-        file_ext = "400html files/404.html" # to show them why
-        resp_headers = self.get_headers(file_ext)
-        resp_body = self.get_body(file_ext)
-
-        response = resp_firstline + newline + resp_headers + newline + resp_body + newline
-        print(response)
-    
-        body = resp_body
-        return HTTPResponse(code, body)
-    
-    def parseUrl(self, URL): #method to get the hostname and path
-        parsed = urllib.parse.urlparse(URL)
-
-        print(parsed)
-        scheme = parsed.scheme
-        hostname = parsed.hostname
-        port = parsed.port
-        path = parsed.path
-
-        return scheme, hostname, port, path
-    
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
             return self.POST( url, args )
         elif (command == "GET"):
             return self.GET( url, args )
         else:
-            return self.Method_Not_Allowed()
-        
-
-def parse_url(url):
-    # Split the URL into host and path
-    parts = url.split('/', 3)
-    host = parts[2]
-    path = '/' + parts[3] if len(parts) > 3 else '/'
-    return host, path
-            
+            return HTTPResponse(404, "404 NOT FOUND")
     
 if __name__ == "__main__":
     client = HTTPClient()
@@ -367,8 +184,20 @@ if __name__ == "__main__":
 
 
 
-######REFERENCES##########
-'''
-https://docs.python.org/3/library/urllib.parse.html
-'''
 
+
+#####REFERENCES##########
+'''
+https://www.tutorialspoint.com/http/http_requests.htm
+https://stackoverflow.com/questions/9626535/get-protocol-host-name-from-url
+https://reqbin.com/req/zvtstmpb/post-request-example
+https://ioflood.com/blog/python-url-encode/#:~:text=To%20encode%20a%20URL%20in,for%20transport%20over%20the%20internet.
+https://docs.python.org/3/library/urllib.parse.html
+https://www.geeksforgeeks.org/what-does-s-mean-in-a-python-format-string/
+https://www.w3schools.com/python/ref_string_replace.asp
+https://dev.to/sidthesloth92/understanding-html-form-encoding-url-encoded-and-multipart-forms-3lpa
+https://www.geeksforgeeks.org/python-program-to-remove-last-character-from-the-string/
+
+
+
+'''
