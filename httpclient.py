@@ -18,6 +18,8 @@
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
 
+##Implementation provided by Daniel Asimiakwini
+
 import sys
 import socket
 import re
@@ -45,19 +47,16 @@ class HTTPClient(object):
 
     def get_code(self, data):
         resp_parts = data.split("\r\n\r\n")
-        print(resp_parts)
         code = int(resp_parts[0].split()[1])
         return code
 
     def get_headers(self,data):
         resp_parts = data.split("\r\n\r\n")
-        print(resp_parts)
         headers = resp_parts[0]
         return headers
 
     def get_body(self, data):
         resp_parts = data.split("\r\n\r\n")
-        print(resp_parts)
         body = resp_parts[1]
         return body
     
@@ -84,7 +83,7 @@ class HTTPClient(object):
         body = ""
 
         url_parts = urllib.parse.urlparse(url)
-        print(url_parts)
+
         scheme = url_parts.scheme
         host = url_parts.hostname
         port = url_parts.port
@@ -94,8 +93,6 @@ class HTTPClient(object):
         if not path:
             path = "/"
 
-        # print("HOST PORT")
-        # print(host, port)
 
         self.connect(host, port)
 
@@ -105,12 +102,12 @@ class HTTPClient(object):
 
         request = first_line + req_headers + req_body
 
-        print(request)
+        # print(request)
         self.sendall(request)
         response = self.recvall(self.socket)
         self.close()
 
-        print("response was")
+        # print("response was")
         print(response)
 
         code = self.get_code(response)
@@ -124,7 +121,8 @@ class HTTPClient(object):
         body = ""
 
         url_parts = urllib.parse.urlparse(url)
-        print(url_parts)
+        # print(url_parts)
+
         scheme = url_parts.scheme
         host = url_parts.hostname
         port = url_parts.port
@@ -135,9 +133,8 @@ class HTTPClient(object):
                 port = 80
         path = url_parts.path
 
-        print("HOST PORT")
-        print(host, port)
-
+        # print("HOST PORT")
+        # print(host, port)
         self.connect(host, port)
 
         first_line = "POST " + path + " HTTP/1.1\r\n"
@@ -154,7 +151,7 @@ class HTTPClient(object):
 
         request = first_line + req_headers + newline + req_body
 
-        print(request)
+        # print(request)
         self.sendall(request)
         response = self.recvall(self.socket)
         self.close()
@@ -202,7 +199,4 @@ https://www.geeksforgeeks.org/what-does-s-mean-in-a-python-format-string/
 https://www.w3schools.com/python/ref_string_replace.asp
 https://dev.to/sidthesloth92/understanding-html-form-encoding-url-encoded-and-multipart-forms-3lpa
 https://www.geeksforgeeks.org/python-program-to-remove-last-character-from-the-string/
-
-
-
 '''
