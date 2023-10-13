@@ -24,7 +24,7 @@ import re
 # you may use urllib to encode data appropriately
 import urllib.parse
 
-newline = "\n"
+newline = "\r\n"
 http = "HTTP/1.1"
 
 def help():
@@ -88,17 +88,19 @@ class HTTPClient(object):
         scheme = url_parts.scheme
         host = url_parts.hostname
         port = url_parts.port
-        if port==None:
+        if not port:
             port = 80
         path = url_parts.path
+        if not path:
+            path = "/"
 
-        print("HOST PORT")
-        print(host, port)
+        # print("HOST PORT")
+        # print(host, port)
 
         self.connect(host, port)
 
         first_line = "GET " + path + " HTTP/1.1\r\n"
-        req_headers = "Host: "+host + newline + "Connection: close\r\n"
+        req_headers = "Host: "+host + newline + "Connection: Close\r\n"
         req_body = "\r\n"
 
         request = first_line + req_headers + req_body
@@ -127,7 +129,10 @@ class HTTPClient(object):
         host = url_parts.hostname
         port = url_parts.port
         if port==None:
-            port = 80
+            if scheme=="https":
+                port = 443
+            else:
+                port = 80
         path = url_parts.path
 
         print("HOST PORT")
